@@ -9,6 +9,8 @@
 #include <round.h>
 #include <stdio.h>
 
+#include "threads/synch.h"
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -91,7 +93,7 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
+    int priority;                       /* Priority. */ // updated as max over locks it has acquired
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -101,6 +103,12 @@ struct thread
      //ADDT01
     int prev_priority;
     int64_t wakeTime;
+
+    //ADDT02
+    struct list lock_list;
+    struct semaphore* seeking;
+    struct lock* seeking_lock;
+    int prev_priority_lock;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -150,12 +158,16 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 //ADDT01
-void thread_priority_temporarily_up();
-void thread_priority_restore();
+void thread_priority_temporarily_up(void);
+void thread_priority_restore(void);
 void thread_block_till_wakeup(int64_t wakeup_at);
-void thread_set_next_wakeup();
+void thread_set_next_wakeup(void);
 bool comparePriority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED);
 bool compareWakeup(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED);
+
+//ADDT02
+void checkYield(void);
+void sort_ready_list(void);
 
 #endif /* threads/thread.h */
 

@@ -102,6 +102,8 @@ thread_init (void)
   //ADDT01
   list_init(&wait_list);
 
+
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -229,6 +231,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  //ADDT02
+  if(t->priority > thread_current()->priority) thread_yield();  
 
   return tid;
 }
@@ -307,7 +311,8 @@ thread_unblock (struct thread *t)
  list_insert_ordered(&ready_list,&t->elem,comparePriority,NULL);
   //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
-  intr_set_level (old_level);
+  intr_set_level (old_level); 
+
 }
 
 /* Returns the name of the running thread. */
@@ -364,6 +369,36 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+//ADDT02 maybe add interupt
+void checkYield(){
+
+  //ADDT02
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  if(!list_empty(&ready_list)){
+    if( thread_current()->priority < list_entry(list_front(&ready_list),struct thread,elem)->priority ){
+     thread_yield();
+    }
+  }
+  intr_set_level (old_level);
+
+}
+
+//ADDT02 maybe add interupt
+void sort_ready_list(){
+
+  //ADDT02
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+
+  if(!list_empty(&ready_list)){
+    list_sort(&ready_list,comparePriority,NULL);
+  }
+  intr_set_level (old_level);
+}
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void
@@ -407,6 +442,38 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  struct list* cur_lock_list = &(thread_current()->lock_list);
+  struct list_elem *e;
+  
+  //ADDT02
+  for(e = list_begin(cur_lock_list); e!= list_end(cur_lock_list); e=list_next(e)){
+    struct lock* cur_lock = list_entry(e,struct lock,elem);
+    if(thread_current ()->priority < cur_lock->priority_lock)
+      thread_current ()->priority = cur_lock->priority_lock;
+  }
+
+  /*if(thread_current()->seeking != NULL){
+    struct lock* L = thread_current()->seeking;
+    struct semaphore* sema = &(L->semaphore);
+    L->priority_lock = 0;
+    for(e = list_begin(&sema->waiters);e!=list_end(&sema->waiters);e=list_next(e)){
+      struct thread* cur_thread = list_entry(e,struct thread,elem);
+      if(cur_thread->priority > L->priority_lock)
+        L->priority_lock = cur_thread->priority;
+    }
+  }*/
+  
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+
+  if(!list_empty(&ready_list)){
+    struct list_elem* first = list_front(&ready_list);
+    if(list_entry(first,struct thread,elem)->priority > new_priority){
+      thread_yield();
+    }
+  }
+  intr_set_level (old_level);
 
 }
 
@@ -414,7 +481,10 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  // ADDT02
+  //Implement donation part.
+  int priority= thread_current ()->priority;
+  return priority;
 }
 
 //ADDT01
@@ -424,7 +494,19 @@ void thread_priority_temporarily_up(){
 
 }
 void thread_priority_restore(){
+
   thread_current()->priority= thread_current()->prev_priority ;
+
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  //ADDT02 -- maybe check recursive for locks
+  if(!list_empty(&ready_list)){
+    struct list_elem* first = list_front(&ready_list);
+    struct thread* cur = list_entry(first,struct thread,elem);
+    if(cur->priority > thread_current()->priority) thread_yield();  
+  }
+  intr_set_level (old_level);
+
 }
 /* Sets the current thread's nice value to NICE. */
 void
@@ -543,6 +625,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+  //ADDT02
+  list_init(&(t->lock_list));
+  t->seeking = NULL;
+  t->seeking_lock=NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

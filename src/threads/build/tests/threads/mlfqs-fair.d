@@ -4,4 +4,5 @@ tests/threads/mlfqs-fair.o: ../../tests/threads/mlfqs-fair.c \
   ../../lib/kernel/stdio.h ../../lib/inttypes.h \
   ../../tests/threads/tests.h ../../threads/init.h ../../threads/malloc.h \
   ../../threads/palloc.h ../../threads/synch.h ../../lib/kernel/list.h \
-  ../../threads/thread.h ../../lib/round.h ../../devices/timer.h
+  ../../threads/thread.h ../../lib/round.h ../../threads/synch.h \
+  ../../devices/timer.h

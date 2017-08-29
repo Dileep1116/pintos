@@ -4,4 +4,4 @@ tests/threads/alarm-zero.o: ../../tests/threads/alarm-zero.c \
   ../../lib/kernel/stdio.h ../../tests/threads/tests.h \
   ../../threads/malloc.h ../../threads/synch.h ../../lib/kernel/list.h \
   ../../threads/thread.h ../../lib/inttypes.h ../../lib/round.h \
-  ../../devices/timer.h
+  ../../threads/synch.h ../../devices/timer.h
