@@ -44,6 +44,11 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+//ADDT03
+const int f = 1<<14;  
+int load_avg = 0;
+//T03
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -64,7 +69,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
-bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -91,6 +95,14 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
+
+//ADDT03
+static thread_func managerial_func;
+static struct thread* managerial_thread;
+static thread_func calculator_func;
+static struct thread* calculator_thread;
+//t03
+
 void
 thread_init (void) 
 {
@@ -102,14 +114,103 @@ thread_init (void)
   //ADDT01
   list_init(&wait_list);
 
-
+  
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  
 }
+
+//ADDT03
+static void managerial_func (void *param){
+  managerial_thread = thread_current();
+  while (true)
+  {
+    enum intr_level old_level;
+    old_level = intr_disable();
+    //intr_disable();
+    thread_block();
+    //intr_enable();
+    intr_set_level(old_level);
+  
+    timer_wakeup();
+   
+  }
+} 
+//t03
+
+
+//ADDT03
+static void calculator_func(void * param){
+  calculator_thread = thread_current();
+
+  while (true)
+  {
+    enum intr_level old_level;
+    old_level = intr_disable();
+    thread_block();
+    intr_set_level(old_level);
+    
+    //recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice
+    //load_avg = (59/60)*load_avg + (1/60)*ready_threads,
+    //priority = PRI_MAX - (recent_cpu / 4) - (nice * 2),
+
+    struct list_elem* e;
+
+    int ready_threads = 0;
+
+    for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
+      struct thread * tmp = list_entry(e,struct thread,elem);
+      if(tmp == managerial_thread || tmp == idle_thread || tmp == calculator_thread) continue;
+      ready_threads++;
+    }
+
+    int num = 59*f;
+    int den = 60*f;
+    int ratio = ((int64_t) num) * f / den ;
+    load_avg = ((int64_t)load_avg) * ratio / f;
+
+    int r2 = ((int64_t) f) * f / den ;
+    r2 = r2*ready_threads;
+
+    load_avg += r2;
+
+    for(e = list_begin(&all_list);e != list_end(&all_list);e = list_next(e)){
+      struct thread * tmp = list_entry(e,struct thread,allelem);
+      
+      if(tmp == managerial_thread || tmp == idle_thread || tmp == calculator_thread) continue;
+      
+      int num = 2*load_avg;
+      int den = 2*load_avg+f;
+      int ratio = ((int64_t) num) * f / den ;
+      tmp->recent_cpu = (((int64_t) tmp->recent_cpu) * ratio )/ f + (tmp->nice)*f;
+
+    }
+  }
+}
+//t03
+
+
+//ADDT03
+void timer_wakeup(){
+  int64_t curTime = timer_ticks();
+  if(!list_empty(&wait_list)){
+
+    while(list_empty(&wait_list) == 0){
+      struct list_elem* first = list_front(&wait_list);
+      struct thread* cur = list_entry(first,struct thread,elem);
+      if(cur->wakeTime > curTime) break;
+      list_pop_front(&wait_list);
+      thread_unblock(cur);
+    }
+  }
+}
+
+//t03
 
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
@@ -120,6 +221,11 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+
+  //ADDT03
+  thread_create ("managerial", PRI_MAX, managerial_func, NULL);
+  thread_create ("calculator", PRI_MAX, calculator_func, NULL);
+  //t03
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -145,20 +251,69 @@ thread_tick (int64_t timePass)
   else
     kernel_ticks++;
 
-   //take-care
+
+  
 
   if(!list_empty(&wait_list)){
     struct list_elem* first = list_front(&wait_list);
     struct thread* cur = list_entry(first,struct thread,elem);
-    if(cur->wakeTime <= timePass){
-      list_pop_front(&wait_list);
-      thread_unblock(cur);
+    if(cur->wakeTime <= timePass && managerial_thread->status == THREAD_BLOCKED){
+      //ADDT03
+      //list_pop_front(&wait_list);
+      //thread_unblock(cur);
+      thread_unblock(managerial_thread);
+      //t03
     }
   }
 
+  //ADDT03
+  if (timePass % TIMER_FREQ == 0 && thread_mlfqs && calculator_thread->status == THREAD_BLOCKED){
+    thread_unblock(calculator_thread);
+  }
+  //T03
+
+  //ADDT03
+  if(thread_mlfqs){
+    struct thread* curThread = thread_current();
+    if(curThread!=managerial_thread && curThread!=idle_thread && curThread!=calculator_thread){
+      curThread->recent_cpu += f;
+    }
+  }
+  //T03
+
+  //ADDT03
+  if (timePass % TIME_SLICE == 0 && thread_mlfqs){
+    struct list_elem* e;
+    for(e = list_begin(&all_list);e != list_end(&all_list);e = list_next(e)){
+      struct thread * tmp = list_entry(e,struct thread,allelem);
+      
+      if(tmp == managerial_thread || tmp == idle_thread || tmp == calculator_thread) continue;
+      
+      int recent_cpu = tmp->recent_cpu;
+      int nice = tmp->nice;
+      int new_priority =  PRI_MAX*f - (recent_cpu / 4) - (nice*f * 2);
+      
+      if(new_priority >=0)
+        new_priority = (new_priority+f/2)/f;
+      else
+        new_priority = (new_priority-f/2)/f;
+
+      if(new_priority<=PRI_MIN)
+        new_priority = PRI_MIN;
+      else if(new_priority>=PRI_MAX)
+        new_priority = PRI_MAX;
+
+      tmp->priority = new_priority;
+    }
+
+    sort_ready_list();
+  }
+  //t03
+
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= TIME_SLICE){
     intr_yield_on_return ();
+  }
 
 }
 
@@ -229,10 +384,13 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
+  
   /* Add to run queue. */
   thread_unblock (t);
   //ADDT02
   if(t->priority > thread_current()->priority) thread_yield();  
+
+  //t03
 
   return tid;
 }
@@ -307,10 +465,9 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   //ADDT01
-
- list_insert_ordered(&ready_list,&t->elem,comparePriority,NULL);
-  //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+  list_insert_ordered(&ready_list,&t->elem,comparePriority,NULL);       
+    
   intr_set_level (old_level); 
 
 }
@@ -405,11 +562,17 @@ void
 thread_yield (void) 
 {
   struct thread *cur = thread_current ();
+
+  //ADDT03
+  if(cur == managerial_thread || cur == calculator_thread) return;
+  //t03
+
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+
   if (cur != idle_thread){
     //ADDT01
     list_insert_ordered(&ready_list,&cur->elem,comparePriority,NULL);
@@ -442,6 +605,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_current ()->prev_priority_lock = new_priority;
   struct list* cur_lock_list = &(thread_current()->lock_list);
   struct list_elem *e;
   
@@ -451,17 +615,6 @@ thread_set_priority (int new_priority)
     if(thread_current ()->priority < cur_lock->priority_lock)
       thread_current ()->priority = cur_lock->priority_lock;
   }
-
-  /*if(thread_current()->seeking != NULL){
-    struct lock* L = thread_current()->seeking;
-    struct semaphore* sema = &(L->semaphore);
-    L->priority_lock = 0;
-    for(e = list_begin(&sema->waiters);e!=list_end(&sema->waiters);e=list_next(e)){
-      struct thread* cur_thread = list_entry(e,struct thread,elem);
-      if(cur_thread->priority > L->priority_lock)
-        L->priority_lock = cur_thread->priority;
-    }
-  }*/
   
   enum intr_level old_level;
   old_level = intr_disable ();
@@ -510,15 +663,37 @@ void thread_priority_restore(){
 }
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+
+  //ADDT03
+  if(thread_mlfqs == false) return 0;
+
+  thread_current()->nice = nice;
+  int recent_cpu = thread_current()->recent_cpu;
+  int new_priority =  PRI_MAX*f - (recent_cpu / 4) - (nice * 2);
+  if(new_priority >=0)
+    new_priority = (new_priority+f/2)/f;
+  else
+    new_priority = (new_priority-f/2)/f;
+
+  if(new_priority<=PRI_MIN)
+    new_priority = PRI_MIN;
+  else if(new_priority>=PRI_MAX)
+    new_priority = PRI_MAX;
+
+  thread_current()->priority = new_priority;
+
+  checkYield();
+  //T03
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
+  //ADDT03
+  return thread_current()->nice;
   /* Not yet implemented. */
   return 0;
 }
@@ -527,16 +702,32 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  //ADDT03
+  int load_avg_value = 100*load_avg;
+  if(load_avg_value>=0)
+    load_avg_value+=f/2;
+  else
+    load_avg_value-=f/2;
+  load_avg_value/=f;
+
+  return load_avg_value;
+  //T03
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  //ADDt03
+  int recent_cpu_value = 100*thread_current()->recent_cpu;
+  if(recent_cpu_value>=0)
+    recent_cpu_value+=f/2;
+  else
+    recent_cpu_value-=f/2;
+  recent_cpu_value/=f;
+
+  return recent_cpu_value;
+  //T03
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -623,6 +814,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->prev_priority_lock = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 
@@ -630,6 +822,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&(t->lock_list));
   t->seeking = NULL;
   t->seeking_lock=NULL;
+
+  //ADDT03
+  t->nice = 0;
+  t->recent_cpu = 0;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

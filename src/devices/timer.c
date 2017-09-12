@@ -105,14 +105,7 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
   
   //ADDT01
-  thread_priority_temporarily_up (); 
   thread_block_till_wakeup(wakeup_at);
-
-  /*while (timer_elapsed (start) < ticks) 
-    thread_yield ();*/
-
-  thread_set_next_wakeup();
-  thread_priority_restore (); 
 }
 
 

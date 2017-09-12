@@ -215,13 +215,13 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   //ADDT02
-  thread_current()->seeking = &lock->semaphore;
+  //thread_current()->seeking = &lock->semaphore;
   thread_current()->seeking_lock = lock;
 
   if(list_empty(&(thread_current()->lock_list)))
     thread_current()->prev_priority_lock = thread_current()->priority;
 
-  if(lock->holder != NULL){
+  if(thread_mlfqs == 0 && lock->holder != NULL){
     struct lock* L = lock; // current lock
     struct thread* seeker = thread_current(); // holder
     while(1){
@@ -240,10 +240,10 @@ lock_acquire (struct lock *lock)
         
         struct semaphore* sema = L->holder->seeking;
         
-        //enum intr_level old_level;
-        //old_level = intr_disable ();
+        enum intr_level old_level;
+        old_level = intr_disable ();
         list_sort(&sema->waiters,comparePriority,NULL);
-        //intr_set_level (old_level);
+        intr_set_level (old_level);
 
         if(L->holder->seeking_lock == NULL) break;
 
@@ -256,7 +256,7 @@ lock_acquire (struct lock *lock)
 
   }
   
-  else{
+  else if(thread_mlfqs == 0){
     //waiting list of lock need not be empty even if holder is null as the holder might be in ready list.
     if(thread_current()->priority < lock->priority_lock)
       thread_current()->priority = lock->priority_lock;
@@ -266,13 +266,9 @@ lock_acquire (struct lock *lock)
 
   lock->holder = thread_current ();
 
-  //ADDT02 -- maybe add interupt
-  //enum intr_level old_level;
-  //old_level = intr_disable ();
 
   thread_current()->seeking_lock = NULL;
   list_push_back(&(thread_current()->lock_list),&lock->elem);
-  //intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -309,8 +305,8 @@ lock_release (struct lock *lock)
   lock->holder = NULL;
   //ADDT02 code for remove maybe interupt
 
-  //enum intr_level old_level;
-  //old_level = intr_disable ();
+  enum intr_level old_level;
+  old_level = intr_disable ();
   
   struct list* cur_lock_list = &(thread_current()->lock_list);
   struct list_elem *e;
@@ -336,17 +332,19 @@ lock_release (struct lock *lock)
 
   //ADDT02 change priority of thread (updated as max over locks it has acquired) since a lock is released we need to update
   //locks priority will not be changed coz it depends on only waiting list.
-  thread_current()->priority = thread_current()->prev_priority_lock;
+  if(!thread_mlfqs){
+    thread_current()->priority = thread_current()->prev_priority_lock;
 
-  for(e = list_begin(cur_lock_list); e!= list_end(cur_lock_list); e=list_next(e)){
-  
-    struct lock* cur_lock = list_entry(e,struct lock,elem);
-  
-    if(thread_current()->priority < cur_lock->priority_lock)
-      thread_current()->priority = cur_lock->priority_lock;
+    for(e = list_begin(cur_lock_list); e!= list_end(cur_lock_list); e=list_next(e)){
+    
+      struct lock* cur_lock = list_entry(e,struct lock,elem);
+    
+      if(thread_current()->priority < cur_lock->priority_lock)
+        thread_current()->priority = cur_lock->priority_lock;
+    }
   }
 
-  //intr_set_level(old_level);
+  intr_set_level(old_level);
   checkYield();
 }
 
@@ -417,12 +415,12 @@ cond_wait (struct condition *cond, struct lock *lock)
   //list_push_back (&cond->waiters, &waiter.elem);
   waiter.priority_sema = thread_current()->priority;
 
-  //enum intr_level old_level;
-  //old_level = intr_disable ();
+  enum intr_level old_level;
+  old_level = intr_disable ();
 
   list_insert_ordered(&cond->waiters,&waiter.elem,comparePrioritySema,NULL);
 
-  //intr_set_level(old_level);
+  intr_set_level(old_level);
 
   lock_release (lock);
   sema_down (&waiter.semaphore);
