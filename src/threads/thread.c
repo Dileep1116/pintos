@@ -391,6 +391,18 @@ thread_create (const char *name, int priority,
   if(t->priority > thread_current()->priority) thread_yield();  
 
   //t03
+  // ADDUP02
+
+#ifdef USERPROG
+  sema_init (&t->wait, 0);
+  t->ret_status = RET_STATUS_DEFAULT;
+  list_init (&t->files);
+  list_init (&t->children);
+  if (thread_current () != initial_thread)
+    list_push_back (&thread_current ()->children, &t->children_elem);
+  t->parent = thread_current ();
+  t->exited = false;
+#endif
 
   return tid;
 }
@@ -513,9 +525,33 @@ thread_exit (void)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-  process_exit ();
-#endif
+  /* == ADDUP02 */
+  struct list_elem *l;
+  struct thread *t, *cur;
+  
+  cur = thread_current ();
 
+  for (l = list_begin (&cur->children); l != list_end (&cur->children); l = list_next (l))
+    {
+      t = list_entry (l, struct thread, children_elem);
+      if (t->status == THREAD_BLOCKED && t->exited)
+        thread_unblock (t); 
+      // dont know y unblocking these threads
+      else
+        {
+          t->parent = NULL;
+          list_remove (&t->children_elem);
+        }
+        
+    }
+  process_exit ();
+  // where it is closing opened files
+  ASSERT (list_size (&cur->files) == 0);
+  if (cur->parent && cur->parent != initial_thread)
+    list_remove (&cur->children_elem);
+  /* == ADDUP02 */
+  
+#endif
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it call schedule_tail(). */
@@ -955,3 +991,21 @@ bool compareWakeup(const struct list_elem *a,const struct list_elem *b,void *aux
    return false;
 }
 
+// ADDUP02
+struct thread *
+get_thread_by_tid (tid_t tid)
+{
+  struct list_elem *f;
+  struct thread *ret;
+  
+  ret = NULL;
+  for (f = list_begin (&all_list); f != list_end (&all_list); f = list_next (f))
+    {
+      ret = list_entry (f, struct thread, allelem);
+      ASSERT (is_thread (ret));
+      if (ret->tid == tid)
+        return ret;
+    }
+    
+  return NULL;
+}

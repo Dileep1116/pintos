@@ -1,18 +1,18 @@
-/Make.tests/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/arc4.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/arc4.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/arc4.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/cksum.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/cksum.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/cksum.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/lib.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/lib.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/lib.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/main.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/main.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/make-grade/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/random.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
-/tests.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TT02II
+/Make.tests/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/arc4.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/arc4.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/arc4.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/cksum.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/cksum.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/cksum.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/lib.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/lib.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/lib.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/main.c/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/main.h/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/make-grade/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/random.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
+/tests.pm/1.1.1.1/Fri Aug 18 14:35:44 2017//TUP01F
 D/Algorithm////
 D/filesys////
 D/internal////

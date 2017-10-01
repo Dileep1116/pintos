@@ -30,6 +30,12 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+// ADDUP02
+#ifdef USERPROG
+# define RET_STATUS_DEFAULT 0xcdcdcdcd
+# define RET_STATUS_INVALID 0xdcdcdcdc
+#endif
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -121,6 +127,16 @@ struct thread
     #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+    // ADDUP02
+    struct semaphore wait;              /* semaphore for process_wait */
+    int ret_status;                     /* return status */
+    struct list files;                  /* all opened files */
+    struct file *self;                  /* the image file on the disk */
+    struct thread *parent;              /* parent process */
+    struct list children;               /* all children process */
+    struct list_elem children_elem;     /* in children list */
+    bool exited;                        /* whether the thread is exited or not */
 #endif
 
     /* Owned by thread.c. */
@@ -176,6 +192,9 @@ bool compareWakeup(const struct list_elem *a,const struct list_elem *b,void *aux
 //ADDT02
 void checkYield(void);
 void sort_ready_list(void);
+
+// ADDUP02
+struct thread *get_thread_by_tid (tid_t);
 
 #endif /* threads/thread.h */
 
